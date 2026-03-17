@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI Multi-GPU Dispatch — Quick Start</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0a0a0a; color: #e0e0e0; padding: 2rem; }
+        h1 { font-size: 1.1rem; color: #fff; margin-bottom: 0.3rem; }
+        .subtitle { font-size: 0.8rem; color: #888; margin-bottom: 2rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 900px; }
+        .panel { background: #141414; border: 1px solid #2a2a2a; border-radius: 8px; padding: 1.2rem; }
+        .panel-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 1rem; }
+        .server { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; font-size: 0.82rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
+        .dot.online { background: #4caf50; }
+        .dot.busy { background: #ff9800; }
+        input { background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #e0e0e0; font-family: inherit; font-size: 0.8rem; padding: 0.4rem 0.6rem; width: 100%; margin-bottom: 0.5rem; }
+        button { background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0; font-family: inherit; font-size: 0.78rem; padding: 0.5rem 1rem; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #3a3a3a; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        #log { font-size: 0.72rem; color: #888; max-height: 300px; overflow-y: auto; margin-top: 1rem; }
+        #log div { padding: 0.15rem 0; border-bottom: 1px solid #1a1a1a; }
+        #log .ok { color: #4caf50; }
+        #log .err { color: #f44336; }
+        #log .info { color: #64b5f6; }
+        #results { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 1rem; }
+        #results img { max-width: 200px; border-radius: 6px; border: 1px solid #2a2a2a; }
+        .full-width { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+
+<h1>ComfyUI Multi-GPU Dispatch</h1>
+<p class="subtitle">Quick-start demo — configure your servers, load a workflow, generate.</p>
+
+<div class="grid">
+    <!-- Server Config -->
+    <div class="panel">
+        <div class="panel-title">Servers</div>
+        <div class="server">
+            <span class="dot" id="dot-gpu1"></span>
+            <label>GPU 1:</label>
+            <input id="gpu1-url" value="http://localhost:8188" placeholder="http://host:port" />
+        </div>
+        <div class="server">
+            <span class="dot" id="dot-gpu2"></span>
+            <label>GPU 2:</label>
+            <input id="gpu2-url" value="http://localhost:8189" placeholder="http://host:port (optional)" />
+        </div>
+        <button onclick="pingServers()">Test Connections</button>
+    </div>
+
+    <!-- Generate -->
+    <div class="panel">
+        <div class="panel-title">Generate</div>
+        <input id="prompt-input" placeholder="Enter your prompt..." value="A red leather handbag, product photo, white background" />
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+            <input id="width-input" placeholder="Width" value="512" style="width:80px;" />
+            <input id="height-input" placeholder="Height" value="512" style="width:80px;" />
+            <select id="server-select" style="background:#1a1a1a; border:1px solid #333; border-radius:4px; color:#e0e0e0; font-family:inherit; font-size:0.8rem; padding:0.4rem; flex:1;">
+                <option value="gpu1">GPU 1</option>
+                <option value="gpu2">GPU 2</option>
+            </select>
+        </div>
+        <button id="btn-generate" onclick="generate()" disabled>Generate (load workflow first)</button>
+        <div style="margin-top:0.5rem;">
+            <label style="font-size:0.72rem; color:#666;">Load ComfyUI workflow JSON:</label>
+            <input type="file" id="workflow-file" accept=".json" onchange="loadWorkflow(event)" style="border:none; padding:0.2rem 0;" />
+        </div>
+    </div>
+
+    <!-- Log -->
+    <div class="panel full-width">
+        <div class="panel-title">Log</div>
+        <div id="results"></div>
+        <div id="log"></div>
+    </div>
+</div>
+
+<script src="../comfyui-dispatch.js"></script>
+<script>
+    let dispatch = null;
+    let workflowTemplate = null;
+
+    function initDispatch() {
+        dispatch = new ComfyUIDispatch({
+            servers: {
+                gpu1: document.getElementById('gpu1-url').value.trim(),
+                gpu2: document.getElementById('gpu2-url').value.trim() || undefined,
+            },
+            routes: { 'txt2img': 'gpu1' },
+            cache: { enabled: true, fuzzyMatch: true },
+            onLog: (msg, level) => log(msg, level),
+        });
+        // Remove undefined servers
+        if (!dispatch.servers.gpu2) delete dispatch.servers.gpu2;
+    }
+
+    function log(msg, level = 'info') {
+        const el = document.getElementById('log');
+        const div = document.createElement('div');
+        div.className = level;
+        div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        el.prepend(div);
+        // Trim log
+        while (el.children.length > 50) el.removeChild(el.lastChild);
+    }
+
+    async function pingServers() {
+        initDispatch();
+        for (const name of Object.keys(dispatch.servers)) {
+            const dot = document.getElementById(`dot-${name}`);
+            const ok = await dispatch.pingServer(name);
+            dot.className = `dot ${ok ? 'online' : ''}`;
+            log(`${name}: ${ok ? 'online' : 'offline'}`, ok ? 'ok' : 'err');
+        }
+    }
+
+    function loadWorkflow(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                workflowTemplate = JSON.parse(e.target.result);
+                log(`Workflow loaded: ${Object.keys(workflowTemplate).length} nodes`, 'ok');
+                document.getElementById('btn-generate').disabled = false;
+                document.getElementById('btn-generate').textContent = 'Generate';
+            } catch (err) {
+                log(`Failed to parse workflow: ${err.message}`, 'err');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    async function generate() {
+        if (!workflowTemplate) { log('Load a workflow first', 'err'); return; }
+        initDispatch();
+
+        const prompt = document.getElementById('prompt-input').value;
+        const width = parseInt(document.getElementById('width-input').value) || 512;
+        const height = parseInt(document.getElementById('height-input').value) || 512;
+        const server = document.getElementById('server-select').value;
+
+        // Auto-detect common node patterns for prompt, dimensions, seed
+        const wf = new WorkflowBuilder(workflowTemplate);
+
+        // Try to set prompt on CLIPTextEncode nodes
+        for (const [id, node] of Object.entries(workflowTemplate)) {
+            if (node.class_type === 'CLIPTextEncode' && node._meta?.title?.toLowerCase().includes('positive')) {
+                wf.set(id, 'text', prompt);
+                log(`Set prompt on node ${id}`, 'info');
+            }
+        }
+
+        // Try to set dimensions on EmptyLatentImage nodes
+        for (const [id, node] of Object.entries(workflowTemplate)) {
+            if (node.class_type?.includes('EmptyLatentImage') || node.class_type?.includes('Empty')) {
+                if (node.inputs?.width !== undefined) {
+                    wf.setDimensions(id, width, height);
+                    log(`Set dimensions on node ${id}: ${width}x${height}`, 'info');
+                }
+            }
+        }
+
+        // Randomize KSampler seeds
+        for (const [id, node] of Object.entries(workflowTemplate)) {
+            if (node.class_type === 'KSampler' && node.inputs?.seed !== undefined) {
+                wf.randomizeSeed(id);
+                log(`Randomized seed on node ${id}`, 'info');
+            }
+        }
+
+        const btn = document.getElementById('btn-generate');
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+
+        try {
+            const result = await dispatch.run('txt2img', wf.build(), {}, {
+                server,
+                cacheKey: prompt,
+            });
+
+            log(`Done! ${result.images.length} image(s), cached: ${result.cached}`, 'ok');
+
+            const container = document.getElementById('results');
+            for (const img of result.images) {
+                const el = document.createElement('img');
+                el.src = img.url;
+                el.title = `${img.filename} (${server})`;
+                container.prepend(el);
+            }
+        } catch (e) {
+            log(`Generation failed: ${e.message}`, 'err');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Generate';
+        }
+    }
+
+    // Init on load
+    log('Ready. Configure your servers and test the connection.', 'ok');
+</script>
+
+</body>
+</html>
