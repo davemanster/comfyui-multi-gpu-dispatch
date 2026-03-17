@@ -171,8 +171,8 @@ const wf = new WorkflowBuilder(baseWorkflow)
 ```
                ________________________________
               |                                |
-┌──────────────┐     ┌──────────────────────┐  |  -──────────────────────┐
-│  Your App    │────>│  ComfyUI Server A    │   ->│  ComfyUI Server B    │
+┌──────────────┐     ┌──────────────────────┐  |  ┌──────────────────────┐
+│  Your App    │────>│  ComfyUI Server A    │  └->│  ComfyUI Server B    │
 │              │     │  (generation models) │     │  (editing models)    │
 │  dispatch    │     │                      │     │                      │
 │  routes jobs │     └──────────┬───────────┘     └──────────┬───────────┘
