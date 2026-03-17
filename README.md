@@ -53,6 +53,7 @@ Works the same way in Node:
 ```js
 const { ComfyUIDispatch, WorkflowBuilder } = require('./comfyui-dispatch.js');
 ```
+Workflows must be exported in API format. In ComfyUI, enable Dev Mode in settings, then use "Save (API Format)" instead of the normal save. The API format uses numeric node IDs and is what the /prompt endpoint accepts.
 
 ## What it does
 
