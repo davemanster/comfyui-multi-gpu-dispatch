@@ -1,6 +1,6 @@
 # comfyui-multi-gpu-dispatch
 
-A small JavaScript library for routing ComfyUI workflows to multiple GPU servers. No dependencies, no build step. Works in any browser or Node.js.
+A small JavaScript library for routing ComfyUI workflows to multiple GPU servers. No dependencies, no build step. Works in any browser or Node.js. Operates in a FIFO methodology with scheduling. 
 
 ## The problem
 
