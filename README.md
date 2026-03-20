@@ -57,9 +57,9 @@ Workflows must be exported in API format. In ComfyUI, enable Dev Mode in setting
 
 ## What it does
 
-**Routing.** You define named servers and map workflow types to them. `txt2img` goes to the fast GPU, `img_edit` goes to the editing GPU, etc.
+**Routing.** You define named servers and map workflow types to them. `txt2img` goes to the fast GPU, `img_edit` goes to the editing GPU, etc. You are not limited to any specific number of maps or GPUs. 
 
-**Parallel dispatch.** Run jobs on multiple servers at the same time with `runParallel()`. GPU A generates images while GPU B processes edits.
+**Parallel dispatch.** Run jobs on multiple servers at the same time with `runParallel()`. GPU A generates images while GPU B processes edits. Cross reference all of them and status check all of them. 
 
 **Polling.** Queue a job via the ComfyUI API and poll `/history` until it's done. Configurable timeouts and intervals.
 
@@ -96,7 +96,7 @@ const dispatch = new ComfyUIDispatch({
 });
 ```
 
-### `dispatch.run(type, workflow, overrides?, options?)`
+### `dispatch.run(type, workflow, overrides, options)`
 
 Send a workflow to the right server and wait for the result.
 
@@ -130,7 +130,7 @@ const results = await dispatch.runParallel([
 
 Returns `Promise.allSettled` results in the same order.
 
-### `dispatch.uploadImage(file, serverName, filename?)`
+### `dispatch.uploadImage(file, serverName, filename)`
 
 Upload an image to a specific ComfyUI instance.
 
